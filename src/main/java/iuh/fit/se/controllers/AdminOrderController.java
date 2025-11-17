@@ -1,11 +1,13 @@
 package iuh.fit.se.controllers;
 
+import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.entities.OrderDetails;
 import iuh.fit.se.entities.OrderDetailsId;
 import iuh.fit.se.entities.Orders;
 import iuh.fit.se.repositories.OrderDetailsRepository;
 import iuh.fit.se.repositories.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,39 +32,41 @@ public class AdminOrderController {
 
     // Yêu cầu: Xem danh sách đơn hàng (sắp xếp theo ngày)
     @GetMapping
-    public ResponseEntity<List<Orders>> getAllOrders() {
-        return ResponseEntity.ok(orderRepository.findAllByOrderByOrderDateDesc());
+    public ResponseEntity<ApiResponse<?>> getAllOrders() {
+        return ResponseEntity.ok(ApiResponse.success(200, "Orders retrieved successfully", orderRepository.findAllByOrderByOrderDateDesc()));
     }
 
     // Yêu cầu: Xem chi tiết đơn hàng
     @GetMapping("/{id}")
-    public ResponseEntity<Orders> getOrderDetails(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<Orders>> getOrderDetails(@PathVariable int id) {
         return orderRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(order -> ResponseEntity.ok(ApiResponse.success(200, "Order retrieved successfully", order)))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(ApiResponse.error(404, "Not Found", "Order not found"))
+                );
     }
 
     // Yêu cầu: Cập nhật số lượng mặt hàng trong đơn
     // (Đây là chức năng phức tạp, cần tính lại tổng tiền,
     // kiểm tra lại kho, v.v... Cần 1 service riêng)
     @PutMapping("/{orderId}/items")
-    public ResponseEntity<?> updateOrderItemQuantity(
+    public ResponseEntity<ApiResponse<?>> updateOrderItemQuantity(
             @PathVariable int orderId,
             @RequestParam int productId,
             @RequestParam int newQuantity) {
-
         OrderDetailsId id = new OrderDetailsId(orderId, productId);
-        Optional<OrderDetails> detailOpt = orderDetailsRepository.findById(id);
+        var detailOpt = orderDetailsRepository.findById(id);
 
         if (detailOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Order item not found"));
         }
 
         OrderDetails detail = detailOpt.get();
-        // (Thêm logic kiểm tra kho, tính lại tổng tiền cho Order)
         detail.setQuantity(newQuantity);
         orderDetailsRepository.save(detail);
 
-        return ResponseEntity.ok(Map.of("message", "Order item updated"));
+        return ResponseEntity.ok(ApiResponse.success(200, "Order item updated successfully", null));
     }
 }

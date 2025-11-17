@@ -1,5 +1,6 @@
 package iuh.fit.se.controllers;
 
+import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.dtos.BrandRequestDTO;
 import iuh.fit.se.entities.Brands;
 import iuh.fit.se.repositories.BrandRepository;
@@ -26,55 +27,56 @@ public class AdminBrandController {
 
     // CREATE
     @PostMapping
-    public ResponseEntity<Brands> createBrand(@RequestBody BrandRequestDTO req) {
+    public ResponseEntity<ApiResponse<?>> createBrand(@RequestBody BrandRequestDTO req) {
         Brands brand = new Brands();
         brand.setName(req.name());
-        return ResponseEntity.status(HttpStatus.CREATED).body(brandRepository.save(brand));
+        Brands savedBrand = brandRepository.save(brand);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(201, "Brand created successfully", savedBrand));
     }
 
     // GET ALL
     @GetMapping
-    public ResponseEntity<List<Brands>> getAllBrands() {
-        return ResponseEntity.ok(brandRepository.findAll());
+    public ResponseEntity<ApiResponse<?>> getAllBrands() {
+        return ResponseEntity.ok(ApiResponse.success(200, "Brands retrieved successfully", brandRepository.findAll()));
     }
 
     // UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<Object> updateBrand(@PathVariable int id, @RequestBody BrandRequestDTO req) {
+    public ResponseEntity<ApiResponse<Brands>> updateBrand(@PathVariable int id, @RequestBody BrandRequestDTO req) {
         return brandRepository.findById(id).map(brand -> {
             brand.setName(req.name());
             brandRepository.save(brand);
-            return ResponseEntity.ok((Object) brand);
+            return ResponseEntity.ok(ApiResponse.success(200, "Brand updated successfully", brand));
         }).orElseGet(() ->
                 ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Brand not found"))
+                        .body(ApiResponse.error(404, "Not Found", "Brand not found"))
         );
     }
 
     // GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<Object> getBrandById(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<Brands>> getBrandById(@PathVariable int id) {
         return brandRepository.findById(id)
-                .map(brand -> ResponseEntity.ok((Object) brand))
+                .map(brand -> ResponseEntity.ok(ApiResponse.success(200, "Brand retrieved successfully", brand)))
                 .orElseGet(() ->
                         ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(Map.of("error", "Brand not found"))
+                                .body(ApiResponse.error(404, "Not Found", "Brand not found"))
                 );
     }
 
-    // DELETE (ràng buộc: brand có sản phẩm thì không cho xóa)
+    // DELETE
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteBrand(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<?>> deleteBrand(@PathVariable int id) {
         long productCount = brandRepository.countProductsByBrandId(id);
 
         if (productCount > 0) {
+            String errorMsg = "Cannot delete brand. It contains " + productCount + " products.";
             return ResponseEntity.badRequest()
-                    .body(Map.of("error",
-                            "Cannot delete brand. It contains " + productCount + " products."
-                    ));
+                    .body(ApiResponse.error(400, "Bad Request", errorMsg));
         }
 
         brandRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Brand deleted successfully"));
+        return ResponseEntity.ok(ApiResponse.success(200, "Brand deleted successfully", null));
     }
 }

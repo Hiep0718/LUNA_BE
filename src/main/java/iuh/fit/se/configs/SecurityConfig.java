@@ -25,11 +25,17 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final JwtDecoder jwtDecoder;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
     public SecurityConfig(UserDetailsService userDetailsService,
-                          JwtDecoder jwtDecoder) {
+                          JwtDecoder jwtDecoder,
+                          CustomAccessDeniedHandler customAccessDeniedHandler,
+                          CustomAuthenticationEntryPoint customAuthenticationEntryPoint) {
         this.userDetailsService = userDetailsService;
         this.jwtDecoder = jwtDecoder;
+        this.customAccessDeniedHandler = customAccessDeniedHandler;
+        this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
     }
 
     @Bean
@@ -74,6 +80,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler)
+                )
                 .authorizeHttpRequests(auth -> auth
                         // 2. CUSTOMER (phải đăng nhập và có vai trò CUSTOMER)
                         .requestMatchers("/api/orders/checkout").hasRole("CUSTOMER")

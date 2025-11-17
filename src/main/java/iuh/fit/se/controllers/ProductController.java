@@ -1,5 +1,6 @@
 package iuh.fit.se.controllers;
 
+import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.entities.Products;
 import iuh.fit.se.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,20 +28,20 @@ public class ProductController {
 
     // Yêu cầu: Xem danh sách sản phẩm (Guest)
     @GetMapping
-    public ResponseEntity<List<Products>> getAllProducts() {
+    public ResponseEntity<ApiResponse<?>> getAllProducts() {
         // Note: Nên dùng DTO và Phân trang (Pagination) ở đây
         // Nhưng để đơn giản, chúng ta trả về List
-        return ResponseEntity.ok(productService.getAllProducts());
+        return ResponseEntity.ok(ApiResponse.success(200, "Products retrieved successfully", productService.getAllProducts()));
     }
 
     // Yêu cầu: Xem chi tiết sản phẩm (Guest)
     @GetMapping("/{id}")
-    public ResponseEntity<?> getProductById(@PathVariable int id) {
-        Optional<Products> product = productService.getProductById(id);
-        if (product.isPresent()) {
-            return ResponseEntity.ok(product.get());
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "Product not found or not active"));
+    public ResponseEntity<ApiResponse<Products>> getProductById(@PathVariable int id) {
+        return productService.getProductById(id)
+                .map(product -> ResponseEntity.ok(ApiResponse.success(200, "Product retrieved successfully", product)))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(ApiResponse.error(404, "Not Found", "Product not found or not active"))
+                );
     }
 }
