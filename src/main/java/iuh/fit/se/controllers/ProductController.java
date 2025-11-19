@@ -1,6 +1,7 @@
 package iuh.fit.se.controllers;
 
 import iuh.fit.se.dtos.ApiResponse;
+import iuh.fit.se.dtos.ProductResponseDTO;
 import iuh.fit.se.entities.Products;
 import iuh.fit.se.services.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ public class ProductController {
 
     // Yêu cầu: Xem chi tiết sản phẩm (Guest)
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Products>> getProductById(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<ProductResponseDTO>> getProductById(@PathVariable int id) {
         return productService.getProductById(id)
                 .map(product -> ResponseEntity.ok(ApiResponse.success(200, "Product retrieved successfully", product)))
                 .orElseGet(() ->

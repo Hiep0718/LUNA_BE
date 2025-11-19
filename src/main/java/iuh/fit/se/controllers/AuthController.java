@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import iuh.fit.se.dtos.ApiResponse;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -86,50 +88,4 @@ public class AuthController {
     }
 
     public record AuthRequest(String username, String password) {}
-
-    // ApiResponse class definition
-    public static class ApiResponse<T> {
-        private int statusCode;
-        private String message;
-        private T data;
-
-        public ApiResponse(int statusCode, String message, T data) {
-            this.statusCode = statusCode;
-            this.message = message;
-            this.data = data;
-        }
-
-        public static <T> ApiResponse<T> success(int statusCode, String message, T data) {
-            return new ApiResponse<>(statusCode, message, data);
-        }
-
-        public static ApiResponse<?> error(int statusCode, String message, String error) {
-            return new ApiResponse<>(statusCode, message, error);
-        }
-
-        // Getters and setters
-        public int getStatusCode() {
-            return statusCode;
-        }
-
-        public void setStatusCode(int statusCode) {
-            this.statusCode = statusCode;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public T getData() {
-            return data;
-        }
-
-        public void setData(T data) {
-            this.data = data;
-        }
-    }
 }

@@ -33,6 +33,7 @@ public class Discounts {
     private Instant updatedAt;
     private Long createdBy;
     private Long updatedBy;
+    @ToString.Exclude
     // THÊM PHẦN NÀY (để xem 1 mã được dùng cho bao nhiêu đơn):
     @OneToMany(mappedBy = "discount", fetch = FetchType.LAZY)
     private List<Orders> orders = new ArrayList<>();

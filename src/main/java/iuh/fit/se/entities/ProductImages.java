@@ -16,9 +16,11 @@ public class ProductImages {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Products product;
+    private boolean isDefault;
     private String imageUrl;
     @CreationTimestamp
     private Instant createdAt;

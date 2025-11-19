@@ -17,7 +17,7 @@ public class Categories {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     private String name;
-
+    @ToString.Exclude
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Products> products = new ArrayList<>();
 }

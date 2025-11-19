@@ -14,6 +14,7 @@ public class Addresses {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY) // Nên đổi sang LAZY
     @JoinColumn(name = "user_id")
     private User user; // OK, địa chỉ này của user nào

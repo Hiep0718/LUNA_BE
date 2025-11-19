@@ -3,6 +3,8 @@ package iuh.fit.se.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,9 +25,11 @@ public class Products {
     private double price;
     private int stockQuantity;
     private boolean isActive;
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Categories category;
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "brand_id")
     private Brands brand;
@@ -36,13 +40,19 @@ public class Products {
     private Instant updatedAt;
     private Long createdBy;
     private Long updatedBy;
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)
     List<ProductAttributes> productAttributes = new ArrayList<>();
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)
     List<ProductImages> productImages = new ArrayList<>();
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)
     List<Reviews> reviews = new ArrayList<>();
-    // mappedBy = "product" (trỏ tới trường private Products product; trong OrderDetails)
-    @OneToMany(mappedBy = "product") // Không nên dùng Cascade.ALL ở đây
+    @ToString.Exclude
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
     private List<OrderDetails> orderLines = new ArrayList<>();
 }

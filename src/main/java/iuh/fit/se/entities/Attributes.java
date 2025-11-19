@@ -24,6 +24,7 @@ public class Attributes {
     private Instant updatedAt;
     private Long createdBy;
     private Long updatedBy;
+    @ToString.Exclude
     @OneToMany(mappedBy = "attribute", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProductAttributes> productAttributes;
 }

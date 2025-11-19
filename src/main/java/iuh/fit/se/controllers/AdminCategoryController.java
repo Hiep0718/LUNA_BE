@@ -1,5 +1,6 @@
 package iuh.fit.se.controllers;
 
+import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.dtos.CategoryRequestDTO;
 import iuh.fit.se.entities.Categories;
 import iuh.fit.se.repositories.CategoryRepository;
@@ -25,49 +26,50 @@ public class AdminCategoryController {
     }
 
     @PostMapping
-    public ResponseEntity<Categories> createCategory(@RequestBody CategoryRequestDTO req) {
+    public ResponseEntity<ApiResponse<?>> createCategory(@RequestBody CategoryRequestDTO req) {
         Categories cat = new Categories();
         cat.setName(req.name());
-        return ResponseEntity.status(HttpStatus.CREATED).body(categoryRepository.save(cat));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(201, "Category created successfully", categoryRepository.save(cat)));
     }
 
     @GetMapping
-    public ResponseEntity<List<Categories>> getAllCategories() {
-        return ResponseEntity.ok(categoryRepository.findAll());
+    public ResponseEntity<ApiResponse<?>> getAllCategories() {
+        return ResponseEntity.ok(ApiResponse.success(200, "Categories retrieved successfully", categoryRepository.findAll()));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Object> updateCategory(@PathVariable int id, @RequestBody CategoryRequestDTO req) {
+    public ResponseEntity<ApiResponse<Categories>> updateCategory(@PathVariable int id, @RequestBody CategoryRequestDTO req) {
         return categoryRepository.findById(id).map(cat -> {
             cat.setName(req.name());
             categoryRepository.save(cat);
-            return ResponseEntity.ok((Object) cat);
+            return ResponseEntity.ok(ApiResponse.success(200, "Category updated successfully", cat));
         }).orElseGet(() ->
                 ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Category not found"))
+                        .body(ApiResponse.error(404, "Not Found", "Category not found"))
         );
     }
 
-
     @GetMapping("/{id}")
-    public ResponseEntity<Object> getCategoryById(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<Categories>> getCategoryById(@PathVariable int id) {
         return categoryRepository.findById(id)
-                .map(cat -> ResponseEntity.ok((Object) cat))
+                .map(cat -> ResponseEntity.ok(ApiResponse.success(200, "Category retrieved successfully", cat)))
                 .orElseGet(() -> ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Category not found"))
+                        .body(ApiResponse.error(404, "Not Found", "Category not found"))
                 );
     }
 
     // Yêu cầu: Ràng buộc khi xóa
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteCategory(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<?>> deleteCategory(@PathVariable int id) {
         long productCount = categoryRepository.countProductsByCategoryId(id);
         if (productCount > 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Cannot delete category. It contains " + productCount + " products."));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Cannot delete category. It contains " + productCount + " products."));
         }
 
         categoryRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Category deleted successfully"));
+        return ResponseEntity.ok(ApiResponse.success(200, "Category deleted successfully", null));
     }
 }

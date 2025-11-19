@@ -17,6 +17,7 @@ public class Brands {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     private String name;
+    @ToString.Exclude
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     List<Products> products = new ArrayList<>();
 }

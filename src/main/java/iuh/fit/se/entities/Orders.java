@@ -17,12 +17,13 @@ public class Orders {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id") // Sẽ tạo cột 'user_id' trong bảng Orders
     private User user;
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Shipments shipment;
-
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "address_id") // Sẽ tạo cột 'address_id' trong bảng Orders
     private Addresses address;
@@ -30,12 +31,14 @@ public class Orders {
     private Instant orderDate;
     private String status;
     private String subtotal;
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discount_id") // Sẽ tạo cột 'discount_id' trong bảng Orders
     private Discounts discount;
     private double tax;
     private double shippingFee;
     private double total;
+    @ToString.Exclude
     // mappedBy = "order" (trỏ tới trường private Orders order; trong OrderDetails)
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderDetails> orderDetails = new ArrayList<>();
