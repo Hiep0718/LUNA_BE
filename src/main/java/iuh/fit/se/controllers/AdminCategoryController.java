@@ -2,8 +2,8 @@ package iuh.fit.se.controllers;
 
 import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.dtos.CategoryRequestDTO;
-import iuh.fit.se.entities.Categories;
-import iuh.fit.se.repositories.CategoryRepository;
+import iuh.fit.se.dtos.CategoryResponseDTO;
+import iuh.fit.se.services.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,65 +11,59 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/categories")
-@PreAuthorize("hasRole('ADMIN')") // Bảo vệ ở cấp độ controller
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminCategoryController {
 
-    private final CategoryRepository categoryRepository; // Tạm dùng Repo trực tiếp cho gọn
+    private final CategoryService categoryService;
 
     @Autowired
-    public AdminCategoryController(CategoryRepository categoryRepository) {
-        this.categoryRepository = categoryRepository;
+    public AdminCategoryController(CategoryService categoryService) {
+        this.categoryService = categoryService;
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<?>> createCategory(@RequestBody CategoryRequestDTO req) {
-        Categories cat = new Categories();
-        cat.setName(req.name());
+        CategoryResponseDTO category = categoryService.createCategory(req);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(201, "Category created successfully", categoryRepository.save(cat)));
+                .body(ApiResponse.success(201, "Category created successfully", category));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAllCategories() {
-        return ResponseEntity.ok(ApiResponse.success(200, "Categories retrieved successfully", categoryRepository.findAll()));
+        List<CategoryResponseDTO> categories = categoryService.getAllCategories();
+        return ResponseEntity.ok(ApiResponse.success(200, "Categories retrieved successfully", categories));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Categories>> updateCategory(@PathVariable int id, @RequestBody CategoryRequestDTO req) {
-        return categoryRepository.findById(id).map(cat -> {
-            cat.setName(req.name());
-            categoryRepository.save(cat);
-            return ResponseEntity.ok(ApiResponse.success(200, "Category updated successfully", cat));
-        }).orElseGet(() ->
-                ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error(404, "Not Found", "Category not found"))
-        );
+    public ResponseEntity<ApiResponse<CategoryResponseDTO>> updateCategory(@PathVariable int id, @RequestBody CategoryRequestDTO req) {
+        CategoryResponseDTO category = categoryService.updateCategory(id, req);
+        return ResponseEntity.ok(ApiResponse.success(200, "Category updated successfully", category));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Categories>> getCategoryById(@PathVariable int id) {
-        return categoryRepository.findById(id)
-                .map(cat -> ResponseEntity.ok(ApiResponse.success(200, "Category retrieved successfully", cat)))
-                .orElseGet(() -> ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error(404, "Not Found", "Category not found"))
+    public ResponseEntity<ApiResponse<CategoryResponseDTO>> getCategoryById(@PathVariable int id) {
+        return categoryService.getCategoryById(id)
+                .map(category -> ResponseEntity.ok(ApiResponse.success(200, "Category retrieved successfully", category)))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(ApiResponse.error(404, "Not Found", "Category not found"))
                 );
     }
 
-    // Yêu cầu: Ràng buộc khi xóa
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> deleteCategory(@PathVariable int id) {
-        long productCount = categoryRepository.countProductsByCategoryId(id);
-        if (productCount > 0) {
+        try {
+            categoryService.deleteCategory(id);
+            return ResponseEntity.ok(ApiResponse.success(200, "Category deleted successfully", null));
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(400, "Bad Request", "Cannot delete category. It contains " + productCount + " products."));
+                    .body(ApiResponse.error(400, "Bad Request", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Category not found"));
         }
-
-        categoryRepository.deleteById(id);
-        return ResponseEntity.ok(ApiResponse.success(200, "Category deleted successfully", null));
     }
 }

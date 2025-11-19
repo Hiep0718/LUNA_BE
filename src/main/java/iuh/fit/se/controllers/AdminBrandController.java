@@ -2,8 +2,8 @@ package iuh.fit.se.controllers;
 
 import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.dtos.BrandRequestDTO;
-import iuh.fit.se.entities.Brands;
-import iuh.fit.se.repositories.BrandRepository;
+import iuh.fit.se.dtos.BrandResponseDTO;
+import iuh.fit.se.services.BrandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,53 +11,41 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/brands")
-@PreAuthorize("hasRole('ADMIN')") // Chỉ ADMIN được phép truy cập
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminBrandController {
 
-    private final BrandRepository brandRepository;
+    private final BrandService brandService;
 
     @Autowired
-    public AdminBrandController(BrandRepository brandRepository) {
-        this.brandRepository = brandRepository;
+    public AdminBrandController(BrandService brandService) {
+        this.brandService = brandService;
     }
 
-    // CREATE
     @PostMapping
     public ResponseEntity<ApiResponse<?>> createBrand(@RequestBody BrandRequestDTO req) {
-        Brands brand = new Brands();
-        brand.setName(req.name());
-        Brands savedBrand = brandRepository.save(brand);
+        BrandResponseDTO brand = brandService.createBrand(req);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(201, "Brand created successfully", savedBrand));
+                .body(ApiResponse.success(201, "Brand created successfully", brand));
     }
 
-    // GET ALL
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAllBrands() {
-        return ResponseEntity.ok(ApiResponse.success(200, "Brands retrieved successfully", brandRepository.findAll()));
+        List<BrandResponseDTO> brands = brandService.getAllBrands();
+        return ResponseEntity.ok(ApiResponse.success(200, "Brands retrieved successfully", brands));
     }
 
-    // UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Brands>> updateBrand(@PathVariable int id, @RequestBody BrandRequestDTO req) {
-        return brandRepository.findById(id).map(brand -> {
-            brand.setName(req.name());
-            brandRepository.save(brand);
-            return ResponseEntity.ok(ApiResponse.success(200, "Brand updated successfully", brand));
-        }).orElseGet(() ->
-                ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error(404, "Not Found", "Brand not found"))
-        );
+    public ResponseEntity<ApiResponse<BrandResponseDTO>> updateBrand(@PathVariable int id, @RequestBody BrandRequestDTO req) {
+        BrandResponseDTO brand = brandService.updateBrand(id, req);
+        return ResponseEntity.ok(ApiResponse.success(200, "Brand updated successfully", brand));
     }
 
-    // GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Brands>> getBrandById(@PathVariable int id) {
-        return brandRepository.findById(id)
+    public ResponseEntity<ApiResponse<BrandResponseDTO>> getBrandById(@PathVariable int id) {
+        return brandService.getBrandById(id)
                 .map(brand -> ResponseEntity.ok(ApiResponse.success(200, "Brand retrieved successfully", brand)))
                 .orElseGet(() ->
                         ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -65,18 +53,17 @@ public class AdminBrandController {
                 );
     }
 
-    // DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> deleteBrand(@PathVariable int id) {
-        long productCount = brandRepository.countProductsByBrandId(id);
-
-        if (productCount > 0) {
-            String errorMsg = "Cannot delete brand. It contains " + productCount + " products.";
+        try {
+            brandService.deleteBrand(id);
+            return ResponseEntity.ok(ApiResponse.success(200, "Brand deleted successfully", null));
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(400, "Bad Request", errorMsg));
+                    .body(ApiResponse.error(400, "Bad Request", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Brand not found"));
         }
-
-        brandRepository.deleteById(id);
-        return ResponseEntity.ok(ApiResponse.success(200, "Brand deleted successfully", null));
     }
 }
