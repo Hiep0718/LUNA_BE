@@ -38,22 +38,44 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> login(@RequestBody AuthRequest authRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(authRequest.username(), authRequest.password())
-        );
+        if (authRequest == null || authRequest.username() == null || authRequest.password() == null
+                || authRequest.username().trim().isEmpty() || authRequest.password().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Username and password are required"));
+        }
 
-        UserDetails ud = (UserDetails) authentication.getPrincipal();
-        String token = jwtTokenService.generateToken(ud);
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(authRequest.username(), authRequest.password())
+            );
 
-        var loginResponse = Map.of(
-                "token", token,
-                "tokenType", "Bearer"
-        );
-        return ResponseEntity.ok(ApiResponse.success(200, "Login successful", loginResponse));
+            UserDetails ud = (UserDetails) authentication.getPrincipal();
+            String token = jwtTokenService.generateToken(ud);
+
+            var loginResponse = Map.of(
+                    "token", token,
+                    "tokenType", "Bearer"
+            );
+            return ResponseEntity.ok(ApiResponse.success(200, "Login successful", loginResponse));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(401, "Unauthorized", "Invalid username or password"));
+        }
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<?>> register(@RequestBody AuthRequest req) {
+        if (req == null || req.username() == null || req.password() == null
+                || req.username().trim().isEmpty() || req.password().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Username and password are required"));
+        }
+
+        if (req.username().length() < 3 || req.password().length() < 6) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Username must be 3+ chars, password must be 6+ chars"));
+        }
+
         if (userService.existsByUsername(req.username())) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(400, "Bad Request", "Username already exists"));
@@ -61,6 +83,9 @@ public class AuthController {
 
         User user = new User();
         user.setUsername(req.username());
+        user.setFullName(req.username());
+        user.setEmail(req.email());
+        user.setPhone(req.phone());
         user.setPassword(passwordEncoder.encode(req.password()));
         userService.save(user);
 
@@ -87,5 +112,5 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(200, "Logged out successfully (stateless)", null));
     }
 
-    public record AuthRequest(String username, String password) {}
+    public record AuthRequest(String username, String password, String fullName, String email, String phone) {}
 }

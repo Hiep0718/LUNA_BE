@@ -73,7 +73,7 @@ public class ProductServiceImpl implements ProductService {
                                         .id(review.getId())
                                         .reviewText(review.getComment())
                                         .rating(review.getRating())
-                                        .userName(review.getUser() != null ? review.getUser().getFullname(): "Anonymous")
+                                        .userName(review.getUser() != null ? review.getUser().getFullName(): "Anonymous")
                                         .build())
                                 .collect(Collectors.toList()) : null)
                 .build();

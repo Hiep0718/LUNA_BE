@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// AdminProductController.java (File mới)
 @RestController
 @RequestMapping("/api/admin/products")
 @PreAuthorize("hasRole('ADMIN')")
@@ -28,7 +27,7 @@ public class AdminProductController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
-    private final OrderDetailsRepository orderDetailsRepository; // Để check ràng buộc xóa
+    private final OrderDetailsRepository orderDetailsRepository;
 
     @Autowired
     public AdminProductController(ProductRepository productRepository, CategoryRepository categoryRepository, BrandRepository brandRepository, OrderDetailsRepository orderDetailsRepository) {
@@ -38,15 +37,18 @@ public class AdminProductController {
         this.orderDetailsRepository = orderDetailsRepository;
     }
 
-    // Yêu cầu: Tìm kiếm/Xem danh sách sản phẩm
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAllProducts() {
         return ResponseEntity.ok(ApiResponse.success(200, "Products retrieved successfully", productRepository.findAll()));
     }
 
-    // Yêu cầu: Xem chi tiết
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<Products>> getProductById(@PathVariable int id) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
+        }
+
         return productRepository.findById(id)
                 .map(product -> ResponseEntity.ok(ApiResponse.success(200, "Product retrieved successfully", product)))
                 .orElseGet(() ->
@@ -55,9 +57,23 @@ public class AdminProductController {
                 );
     }
 
-    // Yêu cầu: Thêm mới
     @PostMapping
     public ResponseEntity<ApiResponse<?>> createProduct(@RequestBody ProductRequestDTO req) {
+        if (req == null || req.name() == null || req.name().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product name is required"));
+        }
+
+        if (req.price() <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product price must be positive"));
+        }
+
+        if (req.stockQuantity() < 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Stock quantity cannot be negative"));
+        }
+
         Categories cat = categoryRepository.findById(req.categoryId()).orElse(null);
         Brands brand = brandRepository.findById(req.brandId()).orElse(null);
 
@@ -79,9 +95,23 @@ public class AdminProductController {
                 .body(ApiResponse.success(201, "Product created successfully", productRepository.save(p)));
     }
 
-    // Yêu cầu: Cập nhật
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> updateProduct(@PathVariable int id, @RequestBody ProductRequestDTO req) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
+        }
+
+        if (req == null || req.name() == null || req.name().trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product name is required"));
+        }
+
+        if (req.price() <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product price must be positive"));
+        }
+
         var existingProduct = productRepository.findById(id);
         if (existingProduct.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -98,9 +128,19 @@ public class AdminProductController {
         return ResponseEntity.ok(ApiResponse.success(200, "Product updated successfully", productRepository.save(p)));
     }
 
-    // Yêu cầu: Ràng buộc khi xóa
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> deleteProduct(@PathVariable int id) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
+        }
+
+        Optional<Products> productOpt = productRepository.findById(id);
+        if (productOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Product not found"));
+        }
+
         long orderCount = orderDetailsRepository.countByProductId(id);
         if (orderCount > 0) {
             String errorMsg = "Cannot delete product. It exists in " + orderCount + " orders.";

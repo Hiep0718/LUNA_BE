@@ -1,6 +1,7 @@
 package iuh.fit.se.controllers;
 
 import iuh.fit.se.dtos.ApiResponse;
+import iuh.fit.se.dtos.AdminOrderResponseDTO;
 import iuh.fit.se.entities.OrderDetails;
 import iuh.fit.se.entities.OrderDetailsId;
 import iuh.fit.se.entities.Orders;
@@ -13,8 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/orders")
@@ -30,31 +30,57 @@ public class AdminOrderController {
         this.orderDetailsRepository = orderDetailsRepository;
     }
 
-    // Yêu cầu: Xem danh sách đơn hàng (sắp xếp theo ngày)
+    // Xem danh sách đơn hàng (sắp xếp theo ngày)
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAllOrders() {
-        return ResponseEntity.ok(ApiResponse.success(200, "Orders retrieved successfully", orderRepository.findAllByOrderByOrderDateDesc()));
+        List<Orders> orders = orderRepository.findAllWithDetails();
+        List<AdminOrderResponseDTO> dtos = orders.stream()
+                .map(AdminOrderResponseDTO::fromEntity)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(200, "Orders retrieved successfully", dtos));
     }
 
-    // Yêu cầu: Xem chi tiết đơn hàng
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Orders>> getOrderDetails(@PathVariable int id) {
-        return orderRepository.findById(id)
-                .map(order -> ResponseEntity.ok(ApiResponse.success(200, "Order retrieved successfully", order)))
+    public ResponseEntity<ApiResponse<AdminOrderResponseDTO>> getOrderDetails(@PathVariable int id) {
+        return orderRepository.findByIdWithDetails(id)
+                .map(order -> {
+                    // Nhánh 1: Xử lý thành công
+                    if (order.getUser() == null || order.getAddress() == null) {
+
+                        // Nhánh 2: Xử lý Lỗi Server (vẫn trả về cùng kiểu Generic)
+                        // Sử dụng ApiResponse.error(..., null) để khớp kiểu AdminOrderResponseDTO
+                        // Giả định ApiResponse.error có thể trả về kiểu generic mong muốn
+
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .<ApiResponse<AdminOrderResponseDTO>>body( // <--- Thêm ép kiểu tường minh ở đây
+                                        ApiResponse.error(500, "Server Error", "Order data incomplete")
+                                );
+                    }
+
+                    // Nhánh 3: Xử lý Thành công (Khớp kiểu)
+                    return ResponseEntity.ok(ApiResponse.success(200, "Order retrieved successfully", AdminOrderResponseDTO.fromEntity(order)));
+                })
                 .orElseGet(() ->
+                        // Nhánh 4: Xử lý Lỗi Not Found (vẫn trả về cùng kiểu Generic)
+
                         ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                .body(ApiResponse.error(404, "Not Found", "Order not found"))
+                                .<ApiResponse<AdminOrderResponseDTO>>body( // <--- Thêm ép kiểu tường minh ở đây
+                                        ApiResponse.error(404, "Not Found", "Order not found")
+                                )
                 );
     }
 
-    // Yêu cầu: Cập nhật số lượng mặt hàng trong đơn
-    // (Đây là chức năng phức tạp, cần tính lại tổng tiền,
-    // kiểm tra lại kho, v.v... Cần 1 service riêng)
+    // Cập nhật số lượng mặt hàng trong đơn
     @PutMapping("/{orderId}/items")
     public ResponseEntity<ApiResponse<?>> updateOrderItemQuantity(
             @PathVariable int orderId,
             @RequestParam int productId,
             @RequestParam int newQuantity) {
+        if (newQuantity <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Quantity must be greater than 0"));
+        }
+
         OrderDetailsId id = new OrderDetailsId(orderId, productId);
         var detailOpt = orderDetailsRepository.findById(id);
 

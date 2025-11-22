@@ -85,7 +85,7 @@ public class AdminController {
         return userRepository.findById(id)
                 .map(user -> {
                     user.setEmail(req.email());
-                    user.setFullname(req.fullname());
+                    user.setFullName(req.fullname());
 
                     if (req.roleIds() != null && !req.roleIds().isEmpty()) {
                         Set<Role> roles = req.roleIds()
@@ -116,7 +116,7 @@ public class AdminController {
     private UserResponseDTO convertToDTO(User user) {
         UserResponseDTO dto = new UserResponseDTO();
         dto.setId(user.getId());
-        dto.setFullname(user.getFullname());
+        dto.setFullname(user.getFullName());
         dto.setUsername(user.getUsername());
         dto.setEmail(user.getEmail());
         dto.setPhone(user.getPhone());

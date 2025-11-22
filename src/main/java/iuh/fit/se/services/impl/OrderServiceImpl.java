@@ -33,69 +33,69 @@ public class OrderServiceImpl implements OrderService {
 
 
     @Override
-    @Transactional // Rất quan trọng!
+    @Transactional // Very important for transaction rollback on error!
     public Orders checkout(String username, CartDTO cart, int addressId) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be null or empty");
+        }
+
+        if (cart == null || cart.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Cart is empty");
+        }
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Addresses addr = addressRepository.findById(addressId)
                 .orElseThrow(() -> new RuntimeException("Address not found"));
 
-        if (addr.getUser().getId() != user.getId()) {
+        if (!addr.getUser().getId().equals(user.getId())) {
             throw new SecurityException("User does not own this address");
         }
 
-        if (cart.getItems().isEmpty()) {
-            throw new RuntimeException("Cart is empty");
-        }
-
-        // 1. Tạo Order
+        // 1. Create Order
         Orders order = new Orders();
         order.setUser(user);
         order.setAddress(addr);
         order.setOrderDate(Instant.now());
         order.setStatus("PENDING");
-        order.setTotal(cart.getTotalPrice()); // (Cần tính thêm ship, tax, discount)
-        // ... (set subtotal, tax, shippingFee...)
+        order.setTotal(cart.getTotalPrice());
 
         Orders savedOrder = orderRepository.save(order);
 
-        // 2. Tạo OrderDetails (và kiểm tra + giảm Stock)
+        // 2. Create OrderDetails (check stock + decrease inventory)
         List<OrderDetails> detailsList = new ArrayList<>();
         for (CartItemDTO item : cart.getItems()) {
             Products p = productRepository.findById(item.productId())
                     .orElseThrow(() -> new RuntimeException("Product " + item.name() + " not found"));
 
             if (p.getStockQuantity() < item.quantity()) {
-                // Rollback transaction
                 throw new RuntimeException("Not enough stock for " + p.getName());
             }
 
-            // Giảm stock
             p.setStockQuantity(p.getStockQuantity() - item.quantity());
             productRepository.save(p);
 
-            // Tạo OrderDetail
             OrderDetails detail = new OrderDetails();
             detail.setOrder(savedOrder);
             detail.setProduct(p);
             detail.setQuantity(item.quantity());
-            detail.setPrice(item.price()); // Lưu giá tại thời điểm mua
+            detail.setPrice(item.price());
 
             detailsList.add(detail);
         }
 
-        // 3. Lưu OrderDetails
         orderDetailsRepository.saveAll(detailsList);
-
-        // 4. (Gửi Email) - Cần setup JavaMailSender
-        // mailService.sendOrderConfirmation(user, savedOrder);
 
         return savedOrder;
     }
 
     @Override
     public List<Orders> getOrderHistory(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be null or empty");
+        }
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return orderRepository.findByUserId(user.getId());

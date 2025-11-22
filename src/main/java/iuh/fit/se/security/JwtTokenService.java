@@ -45,7 +45,6 @@ public class JwtTokenService {
 
         String tokenValue = encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
 
-        System.out.println(tokenValue);
         return tokenValue;
     }
 }

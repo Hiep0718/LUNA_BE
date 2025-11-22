@@ -1,25 +1,27 @@
 package iuh.fit.se.dtos;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import iuh.fit.se.entities.Orders;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record OrderResponseDTO(
+public record AdminOrderResponseDTO(
         int id,
-        UserSimpleDTO user,
-        AddressDTO address,
+        String userName,
+        Long userId,
         Instant orderDate,
         String status,
-        String subtotal,
+        double subtotal,
         double tax,
         double shippingFee,
         double total,
+        String addressStreet,
+        String addressCity,
+        String addressDistrict,
+        String addressProvince,
         List<OrderDetailDTO> items
 ) {
-    public static OrderResponseDTO fromEntity(Orders order) {
+    public static AdminOrderResponseDTO fromEntity(Orders order) {
         var items = order.getOrderDetails().stream()
                 .map(od -> new OrderDetailDTO(
                         od.getProduct().getId(),
@@ -29,16 +31,20 @@ public record OrderResponseDTO(
                 ))
                 .collect(Collectors.toList());
 
-        return new OrderResponseDTO(
+        return new AdminOrderResponseDTO(
                 order.getId(),
-                UserSimpleDTO.fromEntity(order.getUser()),
-                AddressDTO.fromEntity(order.getAddress()),
+                order.getUser().getUsername(),
+                order.getUser().getId(),
                 order.getOrderDate(),
                 order.getStatus(),
-                order.getSubtotal(),
+                Double.parseDouble(order.getSubtotal() != null ? order.getSubtotal() : "0"),
                 order.getTax(),
                 order.getShippingFee(),
                 order.getTotal(),
+                order.getAddress().getStreet(),
+                order.getAddress().getCity(),
+                order.getAddress().getDistrict(),
+                order.getAddress().getProvince(),
                 items
         );
     }
