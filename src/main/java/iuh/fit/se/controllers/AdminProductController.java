@@ -1,19 +1,25 @@
 package iuh.fit.se.controllers;
 
 import iuh.fit.se.dtos.ApiResponse;
+import iuh.fit.se.dtos.ProductImageListDTO;
 import iuh.fit.se.dtos.ProductRequestDTO;
+import iuh.fit.se.dtos.ProductImageRequestDTO;
 import iuh.fit.se.entities.Brands;
 import iuh.fit.se.entities.Categories;
 import iuh.fit.se.entities.Products;
+import iuh.fit.se.entities.ProductImages;
 import iuh.fit.se.repositories.BrandRepository;
 import iuh.fit.se.repositories.CategoryRepository;
 import iuh.fit.se.repositories.OrderDetailsRepository;
 import iuh.fit.se.repositories.ProductRepository;
+import iuh.fit.se.repositories.ProductImageRepository;
+import iuh.fit.se.services.ImageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -28,13 +34,17 @@ public class AdminProductController {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final OrderDetailsRepository orderDetailsRepository;
+    private final ProductImageRepository productImageRepository;
+    private final ImageService imageService;
 
     @Autowired
-    public AdminProductController(ProductRepository productRepository, CategoryRepository categoryRepository, BrandRepository brandRepository, OrderDetailsRepository orderDetailsRepository) {
+    public AdminProductController(ProductRepository productRepository, CategoryRepository categoryRepository, BrandRepository brandRepository, OrderDetailsRepository orderDetailsRepository, ProductImageRepository productImageRepository, ImageService imageService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.brandRepository = brandRepository;
         this.orderDetailsRepository = orderDetailsRepository;
+        this.productImageRepository = productImageRepository;
+        this.imageService = imageService;
     }
 
     @GetMapping
@@ -150,5 +160,176 @@ public class AdminProductController {
 
         productRepository.deleteById(id);
         return ResponseEntity.ok(ApiResponse.success(200, "Product deleted successfully", null));
+    }
+
+    @PostMapping("/{productId}/images")
+    public ResponseEntity<ApiResponse<?>> uploadProductImage(
+            @PathVariable int productId,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "isDefault", defaultValue = "false") boolean isDefault) {
+
+        if (productId <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
+        }
+
+        Optional<Products> productOpt = productRepository.findById(productId);
+        if (productOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Product not found"));
+        }
+
+        try {
+            // Save image locally
+            String imagePath = imageService.saveImage(file);
+
+            // If this is the default image, unset other default images
+            if (isDefault) {
+                productImageRepository.findByProductIdAndIsDefault(productId, true)
+                        .ifPresent(img -> {
+                            img.setDefault(false);
+                            productImageRepository.save(img);
+                        });
+            }
+
+            // Create and save ProductImages entity
+            ProductImages productImage = new ProductImages();
+            productImage.setProduct(productOpt.get());
+            productImage.setImageUrl(imagePath);
+            productImage.setDefault(isDefault);
+
+            ProductImages savedImage = productImageRepository.save(productImage);
+
+            // Convert to DTO for response
+            ProductImageListDTO imageDTO = ProductImageListDTO.builder()
+                    .id(savedImage.getId())
+                    .imageUrl(savedImage.getImageUrl())
+
+                    .isDefault(savedImage.isDefault())
+                    .createdAt(savedImage.getCreatedAt() != null ? savedImage.getCreatedAt().toString() : null)
+                    .updatedAt(savedImage.getUpdatedAt() != null ? savedImage.getUpdatedAt().toString() : null)
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success(201, "Image uploaded successfully", imageDTO));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Internal Server Error", "Failed to upload image: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    public ResponseEntity<ApiResponse<?>> deleteProductImage(@PathVariable int imageId) {
+        if (imageId <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Image ID must be positive"));
+        }
+
+        Optional<ProductImages> imageOpt = productImageRepository.findById(imageId);
+        if (imageOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Image not found"));
+        }
+
+        try {
+            ProductImages image = imageOpt.get();
+            // Delete file from filesystem
+            imageService.deleteImage(image.getImageUrl());
+            // Delete from database
+            productImageRepository.deleteById(imageId);
+
+            // Convert to DTO for response
+            ProductImageListDTO imageDTO = ProductImageListDTO.builder()
+                    .id(image.getId())
+                    .imageUrl(image.getImageUrl())
+                    .isDefault(image.isDefault())
+                    .createdAt(image.getCreatedAt() != null ? image.getCreatedAt().toString() : null)
+                    .updatedAt(image.getUpdatedAt() != null ? image.getUpdatedAt().toString() : null)
+                    .build();
+
+            return ResponseEntity.ok(ApiResponse.success(200, "Image deleted successfully", imageDTO));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Internal Server Error", "Failed to delete image: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/images/{imageId}")
+    public ResponseEntity<ApiResponse<?>> updateProductImage(
+            @PathVariable int imageId,
+            @RequestBody ProductImageRequestDTO req) {
+
+        if (imageId <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Image ID must be positive"));
+        }
+
+        Optional<ProductImages> imageOpt = productImageRepository.findById(imageId);
+        if (imageOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Image not found"));
+        }
+
+        try {
+            ProductImages image = imageOpt.get();
+
+            // If setting as default, unset other default images for the same product
+            if (req.isDefault()) {
+                productImageRepository.findByProductIdAndIsDefault(image.getProduct().getId(), true)
+                        .ifPresent(img -> {
+                            if (img.getId() != imageId) {
+                                img.setDefault(false);
+                                productImageRepository.save(img);
+                            }
+                        });
+            }
+
+            image.setDefault(req.isDefault());
+            ProductImages updatedImage = productImageRepository.save(image);
+
+            // Convert to DTO for response
+            ProductImageListDTO imageDTO = ProductImageListDTO.builder()
+                    .id(updatedImage.getId())
+                    .imageUrl(updatedImage.getImageUrl())
+                    .isDefault(updatedImage.isDefault())
+                    .createdAt(updatedImage.getCreatedAt() != null ? updatedImage.getCreatedAt().toString() : null)
+                    .updatedAt(updatedImage.getUpdatedAt() != null ? updatedImage.getUpdatedAt().toString() : null)
+                    .build();
+
+            return ResponseEntity.ok(ApiResponse.success(200, "Image updated successfully", imageDTO));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(500, "Internal Server Error", "Failed to update image: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{productId}/images")
+    public ResponseEntity<ApiResponse<?>> getProductImages(@PathVariable int productId) {
+        if (productId <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
+        }
+
+        Optional<Products> productOpt = productRepository.findById(productId);
+        if (productOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(404, "Not Found", "Product not found"));
+        }
+
+        List<ProductImages> images = productImageRepository.findByProductIdOrderByDefault(productId);
+        List<ProductImageListDTO> imageDTOs = images.stream()
+                .map(img -> ProductImageListDTO.builder()
+                        .id(img.getId())
+                        .imageUrl(img.getImageUrl())
+                        .isDefault(img.isDefault())
+                        .createdAt(img.getCreatedAt() != null ? img.getCreatedAt().toString() : null)
+                        .updatedAt(img.getUpdatedAt() != null ? img.getUpdatedAt().toString() : null)
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(ApiResponse.success(200, "Product images retrieved successfully", imageDTOs));
     }
 }
