@@ -56,6 +56,8 @@ public class SecurityConfig {
                         "/api/auth/**",
                         "/api/products",      // Phải liệt kê cả đường dẫn gốc
                         "/api/products/**",
+                        "/api/reviews",       // thêm reviews công khai
+                        "/api/reviews/**",
                         "/api/cart/**",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",     // <-- Thêm dòng này (cho các file .css, .js)
