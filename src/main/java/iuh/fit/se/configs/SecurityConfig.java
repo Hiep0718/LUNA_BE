@@ -53,11 +53,10 @@ public class SecurityConfig {
     public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher( // <-- SỬA LỖI: Chỉ định rõ các đường dẫn cho chain này
-                        "/api/auth/**",
+                        "/api/auth/login", // chỉ login và register được permitAll
+                        "/api/auth/register",
                         "/api/products",      // Phải liệt kê cả đường dẫn gốc
                         "/api/products/**",
-                        "/api/reviews",       // thêm reviews công khai
-                        "/api/reviews/**",
                         "/api/cart/**",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",     // <-- Thêm dòng này (cho các file .css, .js)
