@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -33,6 +34,11 @@ public class ProductResponseDTO {
 
     // Reviews
     private List<ReviewDTO> reviews;
+
+    private Instant createdAt;
+    private Instant updatedAt;
+    private Long createdBy;
+    private Long updatedBy;
 
     @Data
     @NoArgsConstructor

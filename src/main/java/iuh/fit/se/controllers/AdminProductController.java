@@ -4,6 +4,7 @@ import iuh.fit.se.dtos.ApiResponse;
 import iuh.fit.se.dtos.ProductImageListDTO;
 import iuh.fit.se.dtos.ProductRequestDTO;
 import iuh.fit.se.dtos.ProductImageRequestDTO;
+import iuh.fit.se.dtos.ProductResponseDTO;
 import iuh.fit.se.entities.Brands;
 import iuh.fit.se.entities.Categories;
 import iuh.fit.se.entities.Products;
@@ -49,18 +50,21 @@ public class AdminProductController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAllProducts() {
-        return ResponseEntity.ok(ApiResponse.success(200, "Products retrieved successfully", productRepository.findAll()));
+        var products = productRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(200, "Products retrieved successfully", products));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Products>> getProductById(@PathVariable int id) {
+    public ResponseEntity<ApiResponse<ProductResponseDTO>> getProductById(@PathVariable int id) {
         if (id <= 0) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(400, "Bad Request", "Product ID must be positive"));
         }
 
         return productRepository.findById(id)
-                .map(product -> ResponseEntity.ok(ApiResponse.success(200, "Product retrieved successfully", product)))
+                .map(product -> ResponseEntity.ok(ApiResponse.success(200, "Product retrieved successfully", convertToDTO(product))))
                 .orElseGet(() ->
                         ResponseEntity.status(HttpStatus.NOT_FOUND)
                                 .body(ApiResponse.error(404, "Not Found", "Product not found"))
@@ -100,9 +104,11 @@ public class AdminProductController {
         p.setActive(req.isActive());
         p.setCategory(cat);
         p.setBrand(brand);
+        p.setCreatedBy(1L);
 
+        Products savedProduct = productRepository.save(p);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(201, "Product created successfully", productRepository.save(p)));
+                .body(ApiResponse.success(201, "Product created successfully", convertToDTO(savedProduct)));
     }
 
     @PutMapping("/{id}")
@@ -134,8 +140,10 @@ public class AdminProductController {
         p.setPrice(req.price());
         p.setStockQuantity(req.stockQuantity());
         p.setActive(req.isActive());
+        p.setUpdatedBy(1L);
 
-        return ResponseEntity.ok(ApiResponse.success(200, "Product updated successfully", productRepository.save(p)));
+        Products savedProduct = productRepository.save(p);
+        return ResponseEntity.ok(ApiResponse.success(200, "Product updated successfully", convertToDTO(savedProduct)));
     }
 
     @DeleteMapping("/{id}")
@@ -165,7 +173,7 @@ public class AdminProductController {
     @PostMapping("/{productId}/images")
     public ResponseEntity<ApiResponse<?>> uploadProductImage(
             @PathVariable int productId,
-            @RequestPart("file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(value = "isDefault", defaultValue = "false") boolean isDefault) {
 
         if (productId <= 0) {
@@ -180,10 +188,8 @@ public class AdminProductController {
         }
 
         try {
-            // Save image locally
             String imagePath = imageService.saveImage(file);
 
-            // If this is the default image, unset other default images
             if (isDefault) {
                 productImageRepository.findByProductIdAndIsDefault(productId, true)
                         .ifPresent(img -> {
@@ -192,7 +198,6 @@ public class AdminProductController {
                         });
             }
 
-            // Create and save ProductImages entity
             ProductImages productImage = new ProductImages();
             productImage.setProduct(productOpt.get());
             productImage.setImageUrl(imagePath);
@@ -200,11 +205,9 @@ public class AdminProductController {
 
             ProductImages savedImage = productImageRepository.save(productImage);
 
-            // Convert to DTO for response
             ProductImageListDTO imageDTO = ProductImageListDTO.builder()
                     .id(savedImage.getId())
                     .imageUrl(savedImage.getImageUrl())
-
                     .isDefault(savedImage.isDefault())
                     .createdAt(savedImage.getCreatedAt() != null ? savedImage.getCreatedAt().toString() : null)
                     .updatedAt(savedImage.getUpdatedAt() != null ? savedImage.getUpdatedAt().toString() : null)
@@ -236,12 +239,9 @@ public class AdminProductController {
 
         try {
             ProductImages image = imageOpt.get();
-            // Delete file from filesystem
             imageService.deleteImage(image.getImageUrl());
-            // Delete from database
             productImageRepository.deleteById(imageId);
 
-            // Convert to DTO for response
             ProductImageListDTO imageDTO = ProductImageListDTO.builder()
                     .id(image.getId())
                     .imageUrl(image.getImageUrl())
@@ -276,7 +276,6 @@ public class AdminProductController {
         try {
             ProductImages image = imageOpt.get();
 
-            // If setting as default, unset other default images for the same product
             if (req.isDefault()) {
                 productImageRepository.findByProductIdAndIsDefault(image.getProduct().getId(), true)
                         .ifPresent(img -> {
@@ -290,7 +289,6 @@ public class AdminProductController {
             image.setDefault(req.isDefault());
             ProductImages updatedImage = productImageRepository.save(image);
 
-            // Convert to DTO for response
             ProductImageListDTO imageDTO = ProductImageListDTO.builder()
                     .id(updatedImage.getId())
                     .imageUrl(updatedImage.getImageUrl())
@@ -331,5 +329,28 @@ public class AdminProductController {
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.success(200, "Product images retrieved successfully", imageDTOs));
+    }
+
+    private ProductResponseDTO convertToDTO(Products product) {
+        return ProductResponseDTO.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .stockQuantity(product.getStockQuantity())
+                .isActive(product.isActive())
+                .brand(product.getBrand() != null ? ProductResponseDTO.BrandDTO.builder()
+                        .id(product.getBrand().getId())
+                        .name(product.getBrand().getName())
+                        .build() : null)
+                .category(product.getCategory() != null ? ProductResponseDTO.CategoryDTO.builder()
+                        .id(product.getCategory().getId())
+                        .name(product.getCategory().getName())
+                        .build() : null)
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                .createdBy(product.getCreatedBy())
+                .updatedBy(product.getUpdatedBy())
+                .build();
     }
 }
