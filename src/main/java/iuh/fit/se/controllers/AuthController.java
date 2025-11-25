@@ -1,5 +1,6 @@
 package iuh.fit.se.controllers;
 
+import iuh.fit.se.dtos.UserResponse;
 import iuh.fit.se.entities.User;
 import iuh.fit.se.security.JwtTokenService;
 import iuh.fit.se.services.impl.UserServiceImpl;
@@ -12,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -83,7 +85,7 @@ public class AuthController {
 
         User user = new User();
         user.setUsername(req.username());
-        user.setFullName(req.username());
+        user.setFullName(req.fullName());
         user.setEmail(req.email());
         user.setPhone(req.phone());
         user.setPassword(passwordEncoder.encode(req.password()));
@@ -94,16 +96,40 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<?>> me(Authentication auth) {
+    public ResponseEntity<ApiResponse<?>> me(Authentication auth)  {
         if (auth == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error(401, "Unauthorized", "User is not authenticated"));
         }
 
-        var userInfo = Map.of(
-                "username", auth.getName(),
-                "authorities", auth.getAuthorities().stream().map(Object::toString).collect(Collectors.toList())
-        );
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(401, "Unauthorized", "User not found based on token"));
+        }
+
+        // 🌟 Ánh xạ an toàn sang UserResponse DTO 🌟
+        List<String> userRoles = user.getRoles() != null ? user.getRoles().stream()
+                .filter(java.util.Objects::nonNull) // Lọc bỏ Role null
+                .map(role -> {
+                    // Xử lý nếu role.getName() là null
+                    String roleName = role.getName();
+                    return roleName != null ? roleName.replace("ROLE_", "") : "UNKNOWN";
+                })
+                .collect(Collectors.toList()) : java.util.Collections.emptyList();
+
+        // Tạo đối tượng UserResponse
+        UserResponse userInfo = UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .roles(userRoles)
+                .build();
+
+        // Trả về DTO trong ApiResponse
         return ResponseEntity.ok(ApiResponse.success(200, "User info retrieved successfully", userInfo));
     }
 
