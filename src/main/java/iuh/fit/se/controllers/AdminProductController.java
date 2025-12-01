@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,7 +174,8 @@ public class AdminProductController {
     @PostMapping("/{productId}/images")
     public ResponseEntity<ApiResponse<?>> uploadProductImage(
             @PathVariable int productId,
-            @RequestParam("file") MultipartFile file,
+            // SỬA: Nhận vào một List file thay vì 1 file
+            @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "isDefault", defaultValue = "false") boolean isDefault) {
 
         if (productId <= 0) {
@@ -187,9 +189,16 @@ public class AdminProductController {
                     .body(ApiResponse.error(404, "Not Found", "Product not found"));
         }
 
-        try {
-            String imagePath = imageService.saveImage(file);
+        // Validate: Nếu không có file nào được gửi lên
+        if (files == null || files.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Bad Request", "No files uploaded"));
+        }
 
+        List<ProductImageListDTO> savedImageDTOs = new ArrayList<>();
+
+        try {
+            // Xử lý logic Reset Default Image cũ (chỉ làm 1 lần nếu user muốn set default)
             if (isDefault) {
                 productImageRepository.findByProductIdAndIsDefault(productId, true)
                         .ifPresent(img -> {
@@ -198,29 +207,50 @@ public class AdminProductController {
                         });
             }
 
-            ProductImages productImage = new ProductImages();
-            productImage.setProduct(productOpt.get());
-            productImage.setImageUrl(imagePath);
-            productImage.setDefault(isDefault);
+            // SỬA: Vòng lặp duyệt qua từng file trong danh sách
+            for (int i = 0; i < files.size(); i++) {
+                MultipartFile file = files.get(i);
 
-            ProductImages savedImage = productImageRepository.save(productImage);
+                // Bỏ qua nếu file rỗng
+                if(file.isEmpty()) continue;
 
-            ProductImageListDTO imageDTO = ProductImageListDTO.builder()
-                    .id(savedImage.getId())
-                    .imageUrl(savedImage.getImageUrl())
-                    .isDefault(savedImage.isDefault())
-                    .createdAt(savedImage.getCreatedAt() != null ? savedImage.getCreatedAt().toString() : null)
-                    .updatedAt(savedImage.getUpdatedAt() != null ? savedImage.getUpdatedAt().toString() : null)
-                    .build();
+                // 1. Lưu file vật lý
+                String imagePath = imageService.saveImage(file);
+
+                // 2. Lưu vào DB
+                ProductImages productImage = new ProductImages();
+                productImage.setProduct(productOpt.get());
+                productImage.setImageUrl(imagePath);
+
+                // Logic logic: Chỉ set default cho ảnh đầu tiên trong danh sách upload
+                // Nếu i == 0 và isDefault = true thì set true, các ảnh sau set false
+                if (isDefault && i == 0) {
+                    productImage.setDefault(true);
+                } else {
+                    productImage.setDefault(false);
+                }
+
+                ProductImages savedImage = productImageRepository.save(productImage);
+
+                // 3. Thêm vào danh sách trả về
+                savedImageDTOs.add(ProductImageListDTO.builder()
+                        .id(savedImage.getId())
+                        .imageUrl(savedImage.getImageUrl())
+                        .isDefault(savedImage.isDefault())
+                        .createdAt(savedImage.getCreatedAt() != null ? savedImage.getCreatedAt().toString() : null)
+                        .updatedAt(savedImage.getUpdatedAt() != null ? savedImage.getUpdatedAt().toString() : null)
+                        .build());
+            }
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(201, "Image uploaded successfully", imageDTO));
+                    .body(ApiResponse.success(201, "Images uploaded successfully", savedImageDTOs));
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(400, "Bad Request", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error(500, "Internal Server Error", "Failed to upload image: " + e.getMessage()));
+                    .body(ApiResponse.error(500, "Internal Server Error", "Failed to upload images: " + e.getMessage()));
         }
     }
 

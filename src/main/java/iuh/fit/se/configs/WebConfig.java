@@ -1,28 +1,31 @@
 package iuh.fit.se.configs;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Đảm bảo đường dẫn kết thúc bằng /
-        String fileResourcePath = "file:" + uploadDir;
-        if (!uploadDir.endsWith(File.separator)) {
-            fileResourcePath += "/";
-        }
+        // Lấy đường dẫn gốc của dự án (Nơi chứa file pom.xml)
+        String projectDir = System.getProperty("user.dir");
 
-        // Ánh xạ URL /uploads/** tới thư mục vật lý đã cấu hình
+        // Trỏ vào thư mục "uploads" nằm trong dự án
+        Path uploadPath = Paths.get(projectDir, "uploads");
+
+        // Chuyển đường dẫn file hệ thống sang dạng URL resource
+        // .toUri().toString() sẽ tự động thêm "file:/" vào đầu chuỗi chuẩn xác
+        String resourcePath = uploadPath.toUri().toString();
+
+        // Cấu hình: /uploads/** -> trỏ về thư mục vật lý
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(fileResourcePath);
+                .addResourceLocations(resourcePath);
+
+        System.out.println("Serving images from: " + resourcePath);
     }
 }
