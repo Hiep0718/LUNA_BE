@@ -60,7 +60,8 @@ public class SecurityConfig {
                         "/api/cart/**",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",     // <-- Thêm dòng này (cho các file .css, .js)
-                        "/swagger-ui.html"  // <-- Thêm dòng này (cho file .html chính)
+                        "/swagger-ui.html",  // <-- Thêm dòng này (cho file .html chính)
+                        "/uploads/**"
                 )
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
