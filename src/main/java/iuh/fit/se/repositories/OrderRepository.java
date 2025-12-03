@@ -1,6 +1,7 @@
 package iuh.fit.se.repositories;
 
 import iuh.fit.se.entities.Orders;
+import iuh.fit.se.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -35,4 +36,13 @@ public interface OrderRepository extends JpaRepository<Orders, Integer> {
             "WHERE o.user.id = ?1 " +
             "ORDER BY o.orderDate DESC")
     List<Orders> findByUserIdWithDetails(Long userId);
+
+    @Query("SELECT DISTINCT o FROM Orders o " +
+            "LEFT JOIN FETCH o.user " +
+            "LEFT JOIN FETCH o.address " +
+            "LEFT JOIN FETCH o.orderDetails od " +
+            "LEFT JOIN FETCH od.product " +
+            "WHERE o.user = ?1 " +
+            "ORDER BY o.orderDate DESC")
+    List<Orders> findByUser(User user);
 }

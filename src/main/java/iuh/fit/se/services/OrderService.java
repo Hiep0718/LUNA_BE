@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface OrderService {
     // Trả về Order đã tạo, hoặc throw exception
-    Orders checkout(String username, CartDTO cart, int addressId); // Giả sử user chọn 1 addressId
+    Orders checkout(String username, int addressId); // Giả sử user chọn 1 addressId
 
     List<Orders> getOrderHistory(String username);
 }
