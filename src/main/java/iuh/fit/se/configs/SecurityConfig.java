@@ -52,33 +52,31 @@ public class SecurityConfig {
     @Order(1) // Chain 1: CHỈ xử lý các đường dẫn public
     public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher( // <-- SỬA LỖI: Chỉ định rõ các đường dẫn cho chain này
-                        "/api/auth/login", // chỉ login và register được permitAll
+                .securityMatcher(
+                        "/api/auth/login",
                         "/api/auth/register",
-                        "/api/products",      // Phải liệt kê cả đường dẫn gốc
+                        "/api/products",
                         "/api/products/**",
-                        "/api/cart/**",
+                        // ĐÃ XÓA "/api/cart/**" Ở ĐÂY ĐỂ NÓ RƠI XUỐNG CHAIN 2 (CÓ JWT)
                         "/v3/api-docs/**",
-                        "/swagger-ui/**",     // <-- Thêm dòng này (cho các file .css, .js)
-                        "/swagger-ui.html",  // <-- Thêm dòng này (cho file .html chính)
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
                         "/uploads/**"
                 )
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // Bất kỳ request nào khớp (match) ở trên đều được phép
+                        .anyRequest().permitAll()
                 );
-        // Chain này không bật .oauth2ResourceServer()
 
         return http.build();
     }
 
     @Bean
-    @Order(2) // Chain 2: Xử lý TẤT CẢ CÁC ĐƯỜNG DẪN CÒN LẠI
+    @Order(2) // Chain 2: Xử lý TẤT CẢ CÁC ĐƯỜNG DẪN CÒN LẠI (Bao gồm Cart)
     public SecurityFilterChain privateApiFilterChain(HttpSecurity http) throws Exception {
         http
-                // Không có .securityMatcher() -> sẽ khớp "any request" không bị chain 1 bắt
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -87,18 +85,16 @@ public class SecurityConfig {
                         .accessDeniedHandler(customAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 2. CUSTOMER (phải đăng nhập và có vai trò CUSTOMER)
+                        // Cart nằm ở đây vì nó thuộc anyRequest hoặc bạn có thể định nghĩa rõ
+                        .requestMatchers("/api/cart/**").authenticated() // Bắt buộc đăng nhập
+
                         .requestMatchers("/api/orders/checkout").hasRole("CUSTOMER")
                         .requestMatchers("/api/orders/my-history").hasRole("CUSTOMER")
                         .requestMatchers("/api/users/me").hasAnyRole("CUSTOMER", "ADMIN")
-
-                        // 3. ADMIN (phải đăng nhập và có vai trò ADMIN)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                        // 4. Các yêu cầu còn lại (bắt buộc xác thực)
                         .anyRequest().authenticated()
                 )
-                // QUAN TRỌNG: Bật xác thực JWT cho chain này
+                // QUAN TRỌNG: Chain này có JWT Decoder
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> {
                             jwt.decoder(jwtDecoder);
@@ -113,7 +109,7 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
         jwtGrantedAuthoritiesConverter.setAuthoritiesClaimName("authorities");
-        jwtGrantedAuthoritiesConverter.setAuthorityPrefix(""); // Rất quan trọng (để dùng hasRole("ADMIN") thay vì "ROLE_ADMIN")
+        jwtGrantedAuthoritiesConverter.setAuthorityPrefix("");
 
         JwtAuthenticationConverter authenticationConverter = new JwtAuthenticationConverter();
         authenticationConverter.setJwtGrantedAuthoritiesConverter(jwtGrantedAuthoritiesConverter);
@@ -123,8 +119,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("*")); // Cho phép tất cả
-        // config.setAllowedOrigins(List.of("http://localhost:3000")); // Nếu chạy React/Vue
+        config.setAllowedOrigins(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
