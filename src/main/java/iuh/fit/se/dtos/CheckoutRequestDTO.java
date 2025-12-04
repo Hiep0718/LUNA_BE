@@ -1,5 +1,3 @@
 package iuh.fit.se.dtos;
-
-public record CheckoutRequestDTO(
-        int addressId
-) {}
+// Tên biến phải là addressId để khớp với JSON "addressId"
+public record CheckoutRequestDTO(Integer addressId) {}
