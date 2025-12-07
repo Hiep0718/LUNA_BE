@@ -64,4 +64,24 @@ public interface OrderRepository extends JpaRepository<Orders, Integer> {
             "WHERE o.user.id = ?1 AND o.status = ?2 " +
             "ORDER BY o.orderDate DESC")
     List<Orders> findByUserIdAndStatusWithDetails(Long userId, String status);
+    // 1. Doanh thu 7 ngày qua
+    @Query(value = "SELECT DATE_FORMAT(o.order_date, '%d/%m') as label, SUM(o.total) as value " +
+            "FROM orders o " +
+            "WHERE o.order_date >= DATE(NOW()) - INTERVAL 6 DAY " +
+            "AND o.status = 'DELIVERED' " +
+            "GROUP BY DATE(o.order_date), DATE_FORMAT(o.order_date, '%d/%m') " +
+            "ORDER BY DATE(o.order_date)", nativeQuery = true)
+    List<Object[]> getRevenueLast7Days();
+
+    // 2. Doanh thu theo tháng
+    @Query(value = "SELECT CONCAT('Tháng ', MONTH(o.order_date)) as label, SUM(o.total) as value " +
+            "FROM orders o " +
+            "WHERE YEAR(o.order_date) = YEAR(NOW()) " +
+            "AND o.status = 'DELIVERED' " +
+            "GROUP BY MONTH(o.order_date) " +
+            "ORDER BY MONTH(o.order_date)", nativeQuery = true)
+    List<Object[]> getRevenueByMonthCurrentYear();
+
+    // 3. Đếm số đơn
+    long countByStatus(String status);
 }

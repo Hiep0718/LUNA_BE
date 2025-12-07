@@ -146,11 +146,36 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Orders updateOrderStatus(int orderId, String newStatus) {
-        // Tìm đơn (dùng hàm có sẵn fetch details để trả về json đầy đủ)
+        // 1. Tìm đơn hàng kèm chi tiết (để biết số lượng mà trả kho)
         Orders order = orderRepository.findByIdWithDetails(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found ID: " + orderId));
 
-        // CẬP NHẬT TRỰC TIẾP - Không check logic cũ/mới để dễ test
+        String oldStatus = order.getStatus();
+
+        // Nếu trạng thái không đổi thì không làm gì cả
+        if (oldStatus.equals(newStatus)) {
+            return order;
+        }
+
+        // 2. Xử lý logic HOÀN KHO (Restock)
+        // Nếu đơn đang từ trạng thái "giữ chỗ" (PENDING, CONFIRMED) mà chuyển sang HUY (CANCELLED)
+        // Thì phải cộng lại số lượng vào kho
+        if (!"CANCELLED".equals(oldStatus) && "CANCELLED".equals(newStatus)) {
+            List<OrderDetails> details = order.getOrderDetails(); // Cần đảm bảo fetch được list này
+            for (OrderDetails detail : details) {
+                Products product = detail.getProduct();
+                int quantityToReturn = detail.getQuantity();
+
+                // Cộng lại kho
+                product.setStockQuantity(product.getStockQuantity() + quantityToReturn);
+                productRepository.save(product);
+            }
+        }
+
+        // (Optional) Xử lý logic ngược lại: Nếu từ CANCELLED mà khôi phục lại PENDING/CONFIRMED
+        // Thì lại phải trừ kho (và check xem còn hàng để trừ không) - Cái này nâng cao, tạm thời bỏ qua.
+
+        // 3. Cập nhật trạng thái mới
         order.setStatus(newStatus);
 
         return orderRepository.save(order);
