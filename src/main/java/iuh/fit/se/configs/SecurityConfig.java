@@ -88,10 +88,11 @@ public class SecurityConfig {
                         // Cart nằm ở đây vì nó thuộc anyRequest hoặc bạn có thể định nghĩa rõ
                         .requestMatchers("/api/cart/**").authenticated() // Bắt buộc đăng nhập
 
-                        .requestMatchers("/api/orders/checkout").hasRole("CUSTOMER")
-                        .requestMatchers("/api/orders/my-history").hasRole("CUSTOMER")
+                        .requestMatchers("/api/orders/checkout").hasAnyRole("CUSTOMER","ADMIN")
+                        .requestMatchers("/api/orders/my-history").hasAnyRole("CUSTOMER","ADMIN")
                         .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/me").hasAnyRole("CUSTOMER", "ADMIN")
+                        .requestMatchers("/api/reviews/**").hasAnyRole("CUSTOMER", "ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

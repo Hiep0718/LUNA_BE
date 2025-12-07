@@ -28,6 +28,9 @@ public class JwtTokenService {
     public String generateToken(UserDetails ud) {
         Instant now = Instant.now();
 
+        CustomUserDetails cud = (CustomUserDetails) ud;   // ép kiểu
+        Long userId = cud.getUser().getId();             // lấy userId
+
         List<String> authorities = ud.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
@@ -38,14 +41,13 @@ public class JwtTokenService {
                 .issuedAt(now)
                 .expiresAt(now.plusMillis(expirationMs))
                 .subject(ud.getUsername())
+                .claim("id", userId)                     // 👉 Thêm userId vào token
                 .claim("authorities", authorities)
                 .build();
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
-
-        String tokenValue = encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
-
-        return tokenValue;
+        return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
     }
+
 }
 

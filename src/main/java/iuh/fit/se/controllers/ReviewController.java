@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,7 +48,6 @@ public class ReviewController {
     }
 
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ReviewResponseDTO>>> getReviewsByUser(@PathVariable Long userId) {
         try {
             List<ReviewResponseDTO> reviews = reviewService.getReviewsByUserId(userId);
@@ -59,21 +59,23 @@ public class ReviewController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<ReviewResponseDTO>> createReview(
             @RequestBody ReviewRequestDTO reviewRequestDTO,
             Authentication authentication) {
         try {
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            ReviewResponseDTO createdReview = reviewService.createReview(reviewRequestDTO, userDetails.getUser().getId());
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            Long userId = jwt.getClaim("id");
+
+            ReviewResponseDTO createdReview =
+                    reviewService.createReview(reviewRequestDTO, userId);
+
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(201, "Review created successfully", createdReview));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "Bad Request", e.getMessage()));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error(500, "Internal Server Error", e.getMessage()));
         }
     }
+
 }
