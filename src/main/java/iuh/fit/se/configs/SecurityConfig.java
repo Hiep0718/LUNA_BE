@@ -90,6 +90,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/orders/checkout").hasRole("CUSTOMER")
                         .requestMatchers("/api/orders/my-history").hasRole("CUSTOMER")
+                        .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/me").hasAnyRole("CUSTOMER", "ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

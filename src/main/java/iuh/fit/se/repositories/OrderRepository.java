@@ -45,4 +45,23 @@ public interface OrderRepository extends JpaRepository<Orders, Integer> {
             "WHERE o.user = ?1 " +
             "ORDER BY o.orderDate DESC")
     List<Orders> findByUser(User user);
+    // 1. ADMIN: Lấy tất cả đơn theo status
+    @Query("SELECT DISTINCT o FROM Orders o " +
+            "LEFT JOIN FETCH o.user " +
+            "LEFT JOIN FETCH o.address " +
+            "LEFT JOIN FETCH o.orderDetails od " +
+            "LEFT JOIN FETCH od.product " +
+            "WHERE o.status = ?1 " +
+            "ORDER BY o.orderDate DESC")
+    List<Orders> findByStatusWithDetails(String status);
+
+    // 2. USER: Lấy đơn của mình theo status
+    @Query("SELECT DISTINCT o FROM Orders o " +
+            "LEFT JOIN FETCH o.user " +
+            "LEFT JOIN FETCH o.address " +
+            "LEFT JOIN FETCH o.orderDetails od " +
+            "LEFT JOIN FETCH od.product " +
+            "WHERE o.user.id = ?1 AND o.status = ?2 " +
+            "ORDER BY o.orderDate DESC")
+    List<Orders> findByUserIdAndStatusWithDetails(Long userId, String status);
 }

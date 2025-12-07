@@ -10,4 +10,7 @@ public interface OrderService {
     Orders checkout(String username, int addressId); // Giả sử user chọn 1 addressId
 
     List<Orders> getOrderHistory(String username);
+    List<Orders> getOrdersByStatus(String status);
+    List<Orders> getMyOrdersByStatus(String username, String status);
+    Orders updateOrderStatus(int orderId, String newStatus);
 }

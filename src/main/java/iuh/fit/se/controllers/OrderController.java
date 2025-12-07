@@ -90,4 +90,43 @@ public class OrderController {
                     .body(ApiResponse.error(404, "Not Found", e.getMessage()));
         }
     }
+    @GetMapping("/my-orders/filter")
+    public ResponseEntity<ApiResponse<?>> getMyOrdersByStatus(
+            Authentication auth,
+            @RequestParam String status) {
+
+        if (auth == null) return ResponseEntity.status(401).build();
+
+        List<Orders> orders = orderService.getMyOrdersByStatus(auth.getName(), status);
+        List<OrderResponseDTO> dtos = orders.stream().map(OrderResponseDTO::fromEntity).toList();
+
+        return ResponseEntity.ok(ApiResponse.success(200, "Filtered orders", dtos));
+    }
+
+    // --- API CHO ADMIN ---
+
+    // Admin lọc tất cả đơn theo trạng thái
+    // URL: /api/orders/admin/filter?status=CONFIRMED
+    @GetMapping("/admin/filter")
+    public ResponseEntity<ApiResponse<?>> getOrdersByStatusForAdmin(@RequestParam String status) {
+        List<Orders> orders = orderService.getOrdersByStatus(status);
+        List<OrderResponseDTO> dtos = orders.stream().map(OrderResponseDTO::fromEntity).toList();
+
+        return ResponseEntity.ok(ApiResponse.success(200, "All orders by status", dtos));
+    }
+
+    // Admin cập nhật trạng thái
+    // URL: /api/orders/admin/update-status?orderId=1&status=SHIPPED
+    @PutMapping("/admin/update-status")
+    public ResponseEntity<ApiResponse<?>> updateOrderStatus(
+            @RequestParam int orderId,
+            @RequestParam String status) {
+
+        try {
+            Orders updatedOrder = orderService.updateOrderStatus(orderId, status);
+            return ResponseEntity.ok(ApiResponse.success(200, "Status updated", OrderResponseDTO.fromEntity(updatedOrder)));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, "Update failed", e.getMessage()));
+        }
+    }
 }

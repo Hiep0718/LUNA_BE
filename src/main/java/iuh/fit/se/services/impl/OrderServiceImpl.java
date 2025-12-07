@@ -129,4 +129,30 @@ public class OrderServiceImpl implements OrderService {
         // Dựa vào code cũ của bạn, tôi dùng findByUser
         return orderRepository.findByUser(user);
     }
+    @Override
+    public List<Orders> getOrdersByStatus(String status) {
+        // Dùng equalsIgnoreCase hoặc chuẩn hóa về 1 kiểu để tìm kiếm chính xác hơn
+        // Ở đây mình giữ nguyên String bạn truyền vào
+        return orderRepository.findByStatusWithDetails(status);
+    }
+
+    @Override
+    public List<Orders> getMyOrdersByStatus(String username, String status) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return orderRepository.findByUserIdAndStatusWithDetails(user.getId(), status);
+    }
+
+    @Override
+    @Transactional
+    public Orders updateOrderStatus(int orderId, String newStatus) {
+        // Tìm đơn (dùng hàm có sẵn fetch details để trả về json đầy đủ)
+        Orders order = orderRepository.findByIdWithDetails(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found ID: " + orderId));
+
+        // CẬP NHẬT TRỰC TIẾP - Không check logic cũ/mới để dễ test
+        order.setStatus(newStatus);
+
+        return orderRepository.save(order);
+    }
 }
