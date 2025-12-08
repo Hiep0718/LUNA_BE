@@ -57,8 +57,12 @@ public class SecurityConfig {
                         "/api/auth/register",
                         "/api/products",
                         "/api/products/**",
-                        // ĐÃ XÓA "/api/cart/**" Ở ĐÂY ĐỂ NÓ RƠI XUỐNG CHAIN 2 (CÓ JWT)
                         "/v3/api-docs/**",
+                        "/api/categories",     // Cho phép lấy danh sách
+                        "/api/categories/**",  // Cho phép lấy chi tiết theo ID
+                        "/api/brands",     // Cho phép lấy danh sách Brand
+                        "/api/brands/**",  // Cho phép lấy chi tiết Brand
+                        // -----------------------
                         "/swagger-ui/**",
                         "/swagger-ui.html",
                         "/uploads/**"
