@@ -6,14 +6,17 @@ import iuh.fit.se.services.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+
+import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
 import java.time.format.DateTimeFormatter;
+import org.springframework.scheduling.annotation.Async;
 
 @Slf4j
 @Service
@@ -33,189 +36,190 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @Async
     public void sendOrderConfirmationEmail(Orders order) {
         try {
+            log.info("Starting to send email for order: {}", order.getId()); // Log để debug
+            // Tiêu đề email hấp dẫn hơn
+            String subject = String.format("🎉 Đặt hàng thành công! Mã đơn #%s - LUNA Shop", order.getId());
             String htmlContent = buildOrderEmailContent(order);
 
-            // Send HTML email
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(mailFrom, mailFromName);
             helper.setTo(order.getUser().getEmail());
-            helper.setSubject("Xác Nhận Đơn Hàng #" + order.getId() + " - LUNA Shop");
-            helper.setText(htmlContent, true); // true = isHtml
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
 
             mailSender.send(message);
-            log.info("Order confirmation email sent successfully to: {}", order.getUser().getEmail());
+            log.info("Order confirmation email sent to: {}", order.getUser().getEmail());
 
         } catch (MessagingException e) {
-            log.error("Failed to send order confirmation email to: {} - Error: {}",
-                    order.getUser().getEmail(), e.getMessage(), e);
-            // Không throw exception để không ảnh hưởng đến việc tạo đơn hàng
+            log.error("Failed to send email: {}", e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Unexpected error while sending email: {}", e.getMessage(), e);
+            log.error("Unexpected error: {}", e.getMessage(), e);
         }
     }
 
     private String buildOrderEmailContent(Orders order) {
         StringBuilder html = new StringBuilder();
+        DecimalFormat df = new DecimalFormat("#,###"); // Format tiền tệ đẹp hơn: 10,000 thay vì 10000
 
-        html.append("<!DOCTYPE html>\n");
-        html.append("<html lang=\"vi\">\n");
-        html.append("<head>\n");
-        html.append("    <meta charset=\"UTF-8\">\n");
-        html.append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
-        html.append("    <title>Xác Nhận Đơn Hàng</title>\n");
-        html.append("    <style>\n");
-        html.append("        body { font-family: Arial, sans-serif; color: #333; }\n");
-        html.append("        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n");
-        html.append("        .header { background-color: #7c3aed; color: white; padding: 20px; text-align: center; border-radius: 5px; }\n");
-        html.append("        .header h1 { margin: 0; font-size: 24px; }\n");
-        html.append("        .content { background-color: #f9fafb; padding: 20px; margin: 20px 0; border-radius: 5px; }\n");
-        html.append("        .section { margin: 20px 0; }\n");
-        html.append("        .section-title { font-size: 18px; font-weight: bold; color: #7c3aed; margin-bottom: 10px; }\n");
-        html.append("        .order-info { display: table; width: 100%; margin: 10px 0; }\n");
-        html.append("        .info-row { display: table-row; }\n");
-        html.append("        .info-label { display: table-cell; width: 40%; font-weight: bold; padding: 8px; border-bottom: 1px solid #e5e7eb; }\n");
-        html.append("        .info-value { display: table-cell; width: 60%; padding: 8px; border-bottom: 1px solid #e5e7eb; }\n");
-        html.append("        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }\n");
-        html.append("        .items-table th { background-color: #7c3aed; color: white; padding: 12px; text-align: left; }\n");
-        html.append("        .items-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; }\n");
-        html.append("        .items-table tr:nth-child(even) { background-color: #f3f4f6; }\n");
-        html.append("        .total-row { font-size: 18px; font-weight: bold; color: #7c3aed; padding: 12px; text-align: right; }\n");
-        html.append("        .footer { text-align: center; color: #6b7280; font-size: 14px; margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 20px; }\n");
-        html.append("        .button { display: inline-block; background-color: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }\n");
-        html.append("    </style>\n");
-        html.append("</head>\n");
-        html.append("<body>\n");
+        // COLORS CONFIG
+        String primaryColor = "#7c3aed"; // Màu tím chủ đạo
+        String bgColor = "#f3f4f6";      // Màu nền xám nhạt
+        String textColor = "#1f2937";    // Màu chữ đen xám
 
-        // Header
-        html.append("    <div class=\"container\">\n");
-        html.append("        <div class=\"header\">\n");
-        html.append("            <h1>✓ Đơn Hàng Được Xác Nhận</h1>\n");
-        html.append("        </div>\n");
+        html.append("<!DOCTYPE html>");
+        html.append("<html>");
+        html.append("<head>");
+        html.append("<meta name='viewport' content='width=device-width, initial-scale=1.0' />");
+        html.append("<style>");
+        // CSS Reset & Base Styles
+        html.append("body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: " + bgColor + "; font-size: 14px; line-height: 1.6; color: " + textColor + "; }");
+        html.append(".email-container { max-width: 600px; margin: 0 auto; padding: 20px; }");
+        html.append(".email-card { background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }");
 
-        // Main content
-        html.append("        <div class=\"content\">\n");
-        html.append("            <p>Xin chào <strong>").append(order.getUser().getFullName()).append("</strong>,</p>\n");
-        html.append("            <p>Cảm ơn bạn đã đặt hàng tại LUNA Shop! Đơn hàng của bạn đã được xác nhận và đang được chuẩn bị gửi đi.</p>\n");
+        // Header Style
+        html.append(".header { background-color: " + primaryColor + "; padding: 30px 20px; text-align: center; color: white; }");
+        html.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px; }");
+        html.append(".header-icon { font-size: 40px; margin-bottom: 10px; display: block; }");
 
-        // Order details
-        html.append("            <div class=\"section\">\n");
-        html.append("                <div class=\"section-title\">Thông Tin Đơn Hàng</div>\n");
-        html.append("                <div class=\"order-info\">\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Mã Đơn Hàng:</div>\n");
-        html.append("                        <div class=\"info-value\">#").append(order.getId()).append("</div>\n");
-        html.append("                    </div>\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Ngày Đặt:</div>\n");
-        html.append("                        <div class=\"info-value\">").append(formatDate(order.getOrderDate())).append("</div>\n");
-        html.append("                    </div>\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Trạng Thái:</div>\n");
-        html.append("                        <div class=\"info-value\"><strong>").append(getStatusLabel(order.getStatus())).append("</strong></div>\n");
-        html.append("                    </div>\n");
-        html.append("                </div>\n");
-        html.append("            </div>\n");
+        // Content Style
+        html.append(".content { padding: 30px; }");
+        html.append(".greeting { font-size: 18px; margin-bottom: 20px; }");
+        html.append(".order-id-badge { background-color: #f3e8ff; color: " + primaryColor + "; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-family: monospace; }");
 
-        // Shipping address
-        html.append("            <div class=\"section\">\n");
-        html.append("                <div class=\"section-title\">Địa Chỉ Giao Hàng</div>\n");
-        html.append("                <p>\n");
-        html.append(order.getUser().getFullName()).append("<br>\n");
-        html.append(order.getUser().getPhone()).append("<br>\n");
-        html.append(order.getAddress().getStreet()).append(", ").append(order.getAddress().getDistrict()).append(", ").append(order.getAddress().getProvince()).append("\n");
-        html.append("                </p>\n");
-        html.append("            </div>\n");
+        // Info Grid
+        html.append(".info-grid { display: table; width: 100%; margin-bottom: 25px; border-spacing: 0; }");
+        html.append(".info-column { display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; }");
+        html.append(".info-label { font-size: 12px; text-transform: uppercase; color: #6b7280; margin-bottom: 5px; letter-spacing: 0.5px; }");
+        html.append(".info-value { font-weight: 600; font-size: 15px; }");
 
-        // Order items
-        html.append("            <div class=\"section\">\n");
-        html.append("                <div class=\"section-title\">Chi Tiết Sản Phẩm</div>\n");
-        html.append("                <table class=\"items-table\">\n");
-        html.append("                    <thead>\n");
-        html.append("                        <tr>\n");
-        html.append("                            <th>Sản Phẩm</th>\n");
-        html.append("                            <th>Đơn Giá</th>\n");
-        html.append("                            <th>Số Lượng</th>\n");
-        html.append("                            <th>Tổng Cộng</th>\n");
-        html.append("                        </tr>\n");
-        html.append("                    </thead>\n");
-        html.append("                    <tbody>\n");
+        // Table Style
+        html.append(".table-container { margin: 25px 0; width: 100%; border-collapse: collapse; }");
+        html.append(".table-header th { text-align: left; padding: 12px; font-size: 12px; text-transform: uppercase; color: #6b7280; border-bottom: 2px solid #e5e7eb; }");
+        html.append(".table-row td { padding: 15px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }");
+        html.append(".product-name { font-weight: 600; color: " + textColor + "; display: block; }");
+        html.append(".product-qty { font-size: 12px; color: #6b7280; }");
 
-        // Loop through order details
-        for (OrderDetails detail : order.getOrderDetails()) {
-            double itemTotal = detail.getPrice() * detail.getQuantity();
-            html.append("                        <tr>\n");
-            html.append("                            <td>").append(detail.getProduct().getName()).append("</td>\n");
-            html.append("                            <td>").append(formatPrice(detail.getPrice())).append("</td>\n");
-            html.append("                            <td>").append(detail.getQuantity()).append("</td>\n");
-            html.append("                            <td>").append(formatPrice(itemTotal)).append("</td>\n");
-            html.append("                        </tr>\n");
-        }
+        // Summary Section
+        html.append(".summary-section { width: 100%; border-top: 2px solid #e5e7eb; padding-top: 15px; margin-top: 10px; }");
+        html.append(".summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; }");
+        html.append(".summary-row.total { font-size: 18px; font-weight: 800; color: " + primaryColor + "; margin-top: 10px; border-top: 1px dashed #e5e7eb; padding-top: 10px; }");
 
-        html.append("                    </tbody>\n");
-        html.append("                </table>\n");
-        html.append("            </div>\n");
-
-        // Summary
-        html.append("            <div class=\"section\">\n");
-        html.append("                <div class=\"order-info\">\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Tạm Tính:</div>\n");
-        html.append("                        <div class=\"info-value\">").append(formatPrice(order.getTotal() - order.getShippingFee() - order.getTax())).append("</div>\n");
-        html.append("                    </div>\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Phí Vận Chuyển:</div>\n");
-        html.append("                        <div class=\"info-value\">").append(formatPrice(order.getShippingFee())).append("</div>\n");
-        html.append("                    </div>\n");
-        html.append("                    <div class=\"info-row\">\n");
-        html.append("                        <div class=\"info-label\">Thuế:</div>\n");
-        html.append("                        <div class=\"info-value\">").append(formatPrice(order.getTax())).append("</div>\n");
-        html.append("                    </div>\n");
-        html.append("                </div>\n");
-        html.append("                <div class=\"total-row\">\n");
-        html.append("                    Tổng Cộng: ").append(formatPrice(order.getTotal())).append("\n");
-        html.append("                </div>\n");
-        html.append("            </div>\n");
-
-        // Call to action
-        html.append("            <div style=\"text-align: center;\">\n");
-        html.append("                <a href=\"https://luna-shop.com/orders/").append(order.getId()).append("\" class=\"button\">Xem Chi Tiết Đơn Hàng</a>\n");
-        html.append("            </div>\n");
-
-        html.append("        </div>\n");
+        // Button
+        html.append(".btn-container { text-align: center; margin: 30px 0 10px; }");
+        html.append(".btn { background-color: " + primaryColor + "; color: white; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px; display: inline-block; transition: background 0.3s; }");
+        html.append(".btn:hover { background-color: #6d28d9; }");
 
         // Footer
-        html.append("        <div class=\"footer\">\n");
-        html.append("            <p>LUNA Shop - Cửa hàng mua sắm trực tuyến</p>\n");
-        html.append("            <p>Nếu có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua support@lunashop.com</p>\n");
-        html.append("        </div>\n");
-        html.append("    </div>\n");
-        html.append("</body>\n");
-        html.append("</html>\n");
+        html.append(".footer { text-align: center; margin-top: 30px; font-size: 12px; color: #9ca3af; }");
+        html.append(".footer a { color: " + primaryColor + "; text-decoration: none; }");
+
+        // Responsive Mobile
+        html.append("@media only screen and (max-width: 600px) {");
+        html.append(".email-container { width: 100% !important; padding: 10px !important; }");
+        html.append(".content { padding: 20px !important; }");
+        html.append(".header { padding: 20px !important; }");
+        html.append("}");
+
+        html.append("</style>");
+        html.append("</head>");
+
+        html.append("<body>");
+        html.append("<div class='email-container'>");
+
+        // --- CARD START ---
+        html.append("<div class='email-card'>");
+
+        // HEADER
+        html.append("<div class='header'>");
+        html.append("<span class='header-icon'>📦</span>");
+        html.append("<h1>Cảm ơn bạn đã đặt hàng!</h1>");
+        html.append("</div>");
+
+        // BODY CONTENT
+        html.append("<div class='content'>");
+
+        // Greeting
+        html.append("<p class='greeting'>Xin chào <strong>").append(order.getUser().getFullName()).append("</strong>, 👋</p>");
+        html.append("<p>Đơn hàng của bạn tại LUNA Shop đã được tiếp nhận và đang trong quá trình xử lý.</p>");
+
+        // Info Grid (Mã đơn & Ngày đặt)
+        html.append("<div class='info-grid'>");
+        html.append("<div class='info-column'>");
+        html.append("<div class='info-label'>Mã đơn hàng</div>");
+        html.append("<div class='info-value'><span class='order-id-badge'>#").append(order.getId()).append("</span></div>");
+        html.append("</div>");
+        html.append("<div class='info-column' style='text-align: right;'>");
+        html.append("<div class='info-label'>Ngày đặt hàng</div>");
+        html.append("<div class='info-value'>").append(formatDate(order.getOrderDate())).append("</div>");
+        html.append("</div>");
+        html.append("</div>");
+
+        // Address Section
+        html.append("<div style='background-color: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>");
+        html.append("<div class='info-label'>Địa chỉ giao hàng</div>");
+        html.append("<div class='info-value'>").append(order.getAddress().getStreet())
+                .append(", ").append(order.getAddress().getDistrict())
+                .append(", ").append(order.getAddress().getProvince()).append("</div>");
+        html.append("<div style='margin-top: 5px; color: #6b7280; font-size: 13px;'>SĐT: ").append(order.getUser().getPhone()).append("</div>");
+        html.append("</div>");
+
+        // PRODUCT TABLE
+        html.append("<table class='table-container'>");
+        html.append("<tr class='table-header'><th>Sản phẩm</th><th style='text-align: right;'>Thành tiền</th></tr>");
+
+        for (OrderDetails detail : order.getOrderDetails()) {
+            double itemTotal = detail.getPrice() * detail.getQuantity();
+            html.append("<tr class='table-row'>");
+            html.append("<td>");
+            html.append("<span class='product-name'>").append(detail.getProduct().getName()).append("</span>");
+            html.append("<span class='product-qty'>x").append(detail.getQuantity()).append("</span>");
+            html.append("</td>");
+            html.append("<td style='text-align: right; font-weight: 500;'>").append(df.format(itemTotal)).append(" đ</td>");
+            html.append("</tr>");
+        }
+        html.append("</table>");
+
+        // SUMMARY (Tổng tiền) - Sử dụng Table thay vì Div để căn chỉnh tốt hơn trong email
+        html.append("<table width='100%'>");
+        html.append("<tr><td style='padding: 5px 0; color: #6b7280;'>Tạm tính</td><td style='text-align: right; font-weight: 500;'>").append(df.format(order.getTotal() - order.getShippingFee() - order.getTax())).append(" đ</td></tr>");
+        html.append("<tr><td style='padding: 5px 0; color: #6b7280;'>Phí vận chuyển</td><td style='text-align: right; font-weight: 500;'>").append(df.format(order.getShippingFee())).append(" đ</td></tr>");
+        if(order.getTax() > 0) {
+            html.append("<tr><td style='padding: 5px 0; color: #6b7280;'>Thuế</td><td style='text-align: right; font-weight: 500;'>").append(df.format(order.getTax())).append(" đ</td></tr>");
+        }
+        html.append("<tr><td style='padding-top: 10px; border-top: 1px dashed #e5e7eb; font-weight: 700; color: "+primaryColor+"; font-size: 16px;'>Tổng thanh toán</td><td style='padding-top: 10px; border-top: 1px dashed #e5e7eb; text-align: right; font-weight: 700; color: "+primaryColor+"; font-size: 18px;'>").append(df.format(order.getTotal())).append(" đ</td></tr>");
+        html.append("</table>");
+
+        // BUTTON CTA
+        html.append("<div class='btn-container'>");
+        html.append("<a href='https://luna-shop.com/orders/").append(order.getId()).append("' class='btn'>Theo Dõi Đơn Hàng</a>");
+        html.append("</div>");
+
+        html.append("</div>"); // End Content
+        html.append("</div>"); // End Card
+        // --- CARD END ---
+
+        // FOOTER
+        html.append("<div class='footer'>");
+        html.append("<p>&copy; 2025 LUNA Shop. All rights reserved.</p>");
+        html.append("<p>Đây là email tự động, vui lòng không trả lời email này.</p>");
+        html.append("<p><a href='#'>Trung tâm trợ giúp</a> | <a href='#'>Chính sách bảo mật</a></p>");
+        html.append("</div>");
+
+        html.append("</div>"); // End Container
+        html.append("</body></html>");
 
         return html.toString();
     }
 
-    private String formatPrice(double price) {
-        return String.format("%.0f đ", price);
-    }
-
+    // Helper để format ngày tháng đơn giản
     private String formatDate(Object date) {
-        if (date == null) return "N/A";
-        return date.toString().substring(0, 10);
-    }
-
-    private String getStatusLabel(String status) {
-        return switch (status) {
-            case "PENDING" -> "Chờ xác nhận";
-            case "CONFIRMED" -> "Đã xác nhận";
-            case "SHIPPED" -> "Đang giao";
-            case "DELIVERED" -> "Đã giao";
-            case "CANCELLED" -> "Đã hủy";
-            default -> status;
-        };
+        if (date == null) return "";
+        // Giả sử date là LocalDateTime, nếu là Date thường thì format khác
+        return date.toString().replace("T", " ").substring(0, 16);
     }
 }
